@@ -1,0 +1,6 @@
+{
+  "name": "Funding Radar",
+  "description": "An executive PM AI agent that scans venture capital funding announcements and drafts targeted way-in outreach angles custom-tailored to your professional background.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
