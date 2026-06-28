@@ -15,9 +15,9 @@ app.use(express.json({ limit: "10mb" }));
 // Lazy Gemini Client initialization
 let _ai: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
-  const key = process.env.GEMINI_API_KEY;
+  const key = process.env.GEMINI_API_KEY_FR;
   if (!key) {
-    console.warn("GEMINI_API_KEY process env is missing. Relying on fallback mock logic.");
+    console.warn("GEMINI_API_KEY_FR process env is missing. Relying on fallback mock logic.");
     return null;
   }
   if (!_ai) {
