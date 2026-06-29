@@ -270,112 +270,106 @@ async function seedDefaultRunForUser(userId: string, activeRegion: string) {
 
 // --- AUTH ENDPOINTS ---
 
-// Register User
-app.post("/api/auth/sign-up", async (req, res) => {
-  const { email, password, full_name } = req.body;
+app.post("/api/auth", async (req, res) => {
+  const action = (req.query.action || req.body.action) as string;
 
-  if (!email || !password || !full_name) {
-    return res.status(400).json({ error: "Missing required fields.", code: "ERR_MISSING_FIELDS" });
+  if (!action) {
+    return res.status(400).json({ error: "Missing action parameter.", code: "ERR_MISSING_ACTION" });
   }
 
   try {
-    const existing = await dbService.getUserByEmail(email);
-    if (existing) {
-      return res.status(400).json({ error: "Email already registered.", code: "ERR_EMAIL_TAKEN" });
-    }
+    switch (action) {
+      case "sign-in": {
+        const { email, password, isGoogle } = req.body;
 
-    const userId = `usr-${Date.now()}`;
-    const newUser = {
-      id: userId,
-      email: email.toLowerCase(),
-      password, // Plain text match for simple credential tracking
-      full_name,
-      role: "Senior Product Leader",
-      avatar_url: null,
-      confirmed: false, // Must verify email
-      created_at: new Date().toISOString()
-    };
+        if (isGoogle) {
+          let user = await dbService.getUserByEmail(email);
+          if (!user) {
+            const userId = `usr-${Date.now()}`;
+            user = {
+              id: userId,
+              email: email.toLowerCase(),
+              password: "google-oauth-dummy-pass",
+              full_name: email.split("@")[0].split(".").map((n: string) => n.charAt(0).toUpperCase() + n.slice(1)).join(" ") || "Alexander Vance",
+              role: "Senior Product Leader",
+              avatar_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuAirZh9BKjWPHvdApAQiITRon5ODS77U1Nut8P_H9NMUwFQ7JdtAp5Q7TlLc_xxzpAq8r1o3uWOzLEqSRUo4rP5QZKbqpFr5JIpbw6m-lXvWXSFtNfyA5PNn7N7xrN9h0HEJhtBY_euRmNUto0-SSEiwSWsgGRL3tnIk-YI9UroTRMUmNqGFmQnvU9jvKX2KFRk240ak5_6W9v5wDhexKEo7uN8OCTx67MUeIt13npOKHCgjma6jdXQHBPpfWBqkP-DFfEOceLpZPS7",
+              confirmed: true,
+              created_at: new Date().toISOString()
+            };
+            await dbService.createUser(user);
 
-    await dbService.createUser(newUser);
+            // Create default config
+            const newConfig = {
+              id: `cfg-${Date.now()}`,
+              user_id: userId,
+              background_summary: "VP of Product with deep expertise in Fintech & SaaS. Led core payment product launches, cross-border payment operations, and API integrations in senior executive networks.",
+              sectors: ["HealthTech", "Fintech", "EdTech", "SaaS"],
+              active_regions: ["Global"],
+              funding_min_usd: 500000,
+              delivery_channel: "telegram",
+              telegram_chat_id: "",
+              run_schedule: "manual",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            await dbService.saveAgentConfig(newConfig);
+            await seedDefaultRunForUser(userId, "India");
+          }
 
-    // Setup default config for this user
-    const newConfig = {
-      id: `cfg-${Date.now()}`,
-      user_id: userId,
-      background_summary: "5+ years in senior product management. Skilled in user research, metrics, SaaS strategy, agile methodologies, and scaling growth channels. Solid experience across fintech, healthtech, and cloud technologies.",
-      sectors: ["HealthTech", "Fintech", "EdTech", "SaaS"],
-      active_regions: ["Global"],
-      funding_min_usd: 500000,
-      delivery_channel: "telegram",
-      telegram_chat_id: "",
-      run_schedule: "manual",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    await dbService.saveAgentConfig(newConfig);
+          return res.json({ user });
+        }
 
-    // Pre-seed a default run with realistic opportunities so they don't see a blank screen
-    await seedDefaultRunForUser(userId, "India");
+        if (!email || !password) {
+          return res.status(400).json({ error: "Missing email or password.", code: "ERR_MISSING_CREDENTIALS" });
+        }
 
-    return res.json({
-      message: "Sign up successful! Verification email simulated.",
-      userId: newUser.id,
-      email: newUser.email
-    });
-  } catch (error: any) {
-    console.error("SignUp error:", error);
-    const friendlyMessage = handleAuthError(error, "Internal register handler error.");
-    return res.status(500).json({ error: friendlyMessage });
-  }
-});
+        const user = await dbService.getUserByEmail(email);
+        if (!user || user.password !== password) {
+          return res.status(401).json({ error: "Invalid email or password.", code: "ERR_BAD_AUTH" });
+        }
 
-// Confirm Email
-app.post("/api/auth/confirm-email", async (req, res) => {
-  const { email } = req.body;
+        if (!user.confirmed) {
+          return res.status(400).json({
+            error: "Please confirm your work email first.",
+            code: "ERR_EMAIL_UNCONFIRMED",
+            email: user.email
+          });
+        }
 
-  try {
-    const user = await dbService.getUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "User not found.", code: "ERR_USER_NOT_FOUND" });
-    }
+        return res.json({ user });
+      }
 
-    await dbService.updateUser(user.id, { confirmed: true });
-    return res.json({ status: "success", message: "Email confirmed!" });
-  } catch (error: any) {
-    console.error("ConfirmEmail error:", error);
-    const friendlyMessage = handleAuthError(error, "Internal confirm email handler error.");
-    return res.status(500).json({ error: friendlyMessage });
-  }
-});
+      case "sign-up": {
+        const { email, password, full_name } = req.body;
 
-// Sign In User
-app.post("/api/auth/sign-in", async (req, res) => {
-  const { email, password, isGoogle } = req.body;
+        if (!email || !password || !full_name) {
+          return res.status(400).json({ error: "Missing required fields.", code: "ERR_MISSING_FIELDS" });
+        }
 
-  try {
-    if (isGoogle) {
-      // Simulate/Ensure user profile for first time Google OAuth
-      let user = await dbService.getUserByEmail(email);
-      if (!user) {
+        const existing = await dbService.getUserByEmail(email);
+        if (existing) {
+          return res.status(400).json({ error: "Email already registered.", code: "ERR_EMAIL_TAKEN" });
+        }
+
         const userId = `usr-${Date.now()}`;
-        user = {
+        const newUser = {
           id: userId,
           email: email.toLowerCase(),
-          password: "google-oauth-dummy-pass",
-          full_name: email.split("@")[0].split(".").map((n: string) => n.charAt(0).toUpperCase() + n.slice(1)).join(" ") || "Alexander Vance",
+          password,
+          full_name,
           role: "Senior Product Leader",
-          avatar_url: "https://lh3.googleusercontent.com/aida-public/AB6AXuAirZh9BKjWPHvdApAQiITRon5ODS77U1Nut8P_H9NMUwFQ7JdtAp5Q7TlLc_xxzpAq8r1o3uWOzLEqSRUo4rP5QZKbqpFr5JIpbw6m-lXvWXSFtNfyA5PNn7N7xrN9h0HEJhtBY_euRmNUto0-SSEiwSWsgGRL3tnIk-YI9UroTRMUmNqGFmQnvU9jvKX2KFRk240ak5_6W9v5wDhexKEo7uN8OCTx67MUeIt13npOKHCgjma6jdXQHBPpfWBqkP-DFfEOceLpZPS7",
-          confirmed: true,
+          avatar_url: null,
+          confirmed: false,
           created_at: new Date().toISOString()
         };
-        await dbService.createUser(user);
 
-        // Create default config
+        await dbService.createUser(newUser);
+
+        // Setup default config for this user
         const newConfig = {
           id: `cfg-${Date.now()}`,
           user_id: userId,
-          background_summary: "VP of Product with deep expertise in Fintech & SaaS. Led core payment product launches, cross-border payment operations, and API integrations in senior executive networks.",
+          background_summary: "5+ years in senior product management. Skilled in user research, metrics, SaaS strategy, agile methodologies, and scaling growth channels. Solid experience across fintech, healthtech, and cloud technologies.",
           sectors: ["HealthTech", "Fintech", "EdTech", "SaaS"],
           active_regions: ["Global"],
           funding_min_usd: 500000,
@@ -385,87 +379,69 @@ app.post("/api/auth/sign-in", async (req, res) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
+        
         await dbService.saveAgentConfig(newConfig);
+
+        // Pre-seed a default run with realistic opportunities so they don't see a blank screen
         await seedDefaultRunForUser(userId, "India");
+
+        return res.json({
+          message: "Sign up successful! Verification email simulated.",
+          userId: newUser.id,
+          email: newUser.email
+        });
       }
 
-      return res.json({ user });
-    }
+      case "confirm-email": {
+        const { email } = req.body;
+        const user = await dbService.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ error: "User not found.", code: "ERR_USER_NOT_FOUND" });
+        }
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Missing email or password.", code: "ERR_MISSING_CREDENTIALS" });
-    }
+        await dbService.updateUser(user.id, { confirmed: true });
+        return res.json({ status: "success", message: "Email confirmed!" });
+      }
 
-    const user = await dbService.getUserByEmail(email);
-    if (!user || user.password !== password) {
-      return res.status(401).json({ error: "Invalid email or password.", code: "ERR_BAD_AUTH" });
-    }
+      case "forgot-password": {
+        const { email } = req.body;
+        const user = await dbService.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ error: "User with this email does not exist.", code: "ERR_USER_NOT_FOUND" });
+        }
 
-    if (!user.confirmed) {
-      return res.status(400).json({
-        error: "Please confirm your work email first.",
-        code: "ERR_EMAIL_UNCONFIRMED",
-        email: user.email
-      });
-    }
+        return res.json({ message: "Password reset link sent to your email!" });
+      }
 
-    return res.json({ user });
+      case "reset-password": {
+        const { email, newPassword } = req.body;
+        const user = await dbService.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ error: "User not found.", code: "ERR_USER_NOT_FOUND" });
+        }
+
+        await dbService.updateUser(user.id, { password: newPassword });
+        return res.json({ message: "Password successfully updated!" });
+      }
+
+      case "delete-account": {
+        const { userId } = req.body;
+        if (!userId) {
+          return res.status(400).json({ error: "Missing user ID.", code: "ERR_MISSING_USER" });
+        }
+
+        await dbService.deleteUser(userId);
+        return res.json({ success: true, message: "Account completely deleted!" });
+      }
+
+      default: {
+        return res.status(400).json({ error: `Unknown action: ${action}`, code: "ERR_UNKNOWN_ACTION" });
+      }
+    }
   } catch (error: any) {
-    console.error("SignIn error:", error);
-    const friendlyMessage = handleAuthError(error, "Internal sign in handler error.");
+    console.error(`Auth error [${action}]:`, error);
+    const friendlyMessage = handleAuthError(error, `Internal ${action} handler error.`);
     return res.status(500).json({ error: friendlyMessage });
-  }
-});
-
-// Forgot / Reset Password
-app.post("/api/auth/forgot-password", async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await dbService.getUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "User with this email does not exist.", code: "ERR_USER_NOT_FOUND" });
-    }
-
-    // Simulated email delivery
-    return res.json({ message: "Password reset link sent to your email!" });
-  } catch (error: any) {
-    console.error("ForgotPassword error:", error);
-    return res.status(500).json({ error: "Internal forgot password handler error." });
-  }
-});
-
-app.post("/api/auth/reset-password", async (req, res) => {
-  const { email, newPassword } = req.body;
-
-  try {
-    const user = await dbService.getUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "User not found.", code: "ERR_USER_NOT_FOUND" });
-    }
-
-    await dbService.updateUser(user.id, { password: newPassword });
-    return res.json({ message: "Password successfully updated!" });
-  } catch (error: any) {
-    console.error("ResetPassword error:", error);
-    return res.status(500).json({ error: "Internal reset password handler error." });
-  }
-});
-
-// Delete Account
-app.post("/api/auth/delete-account", async (req, res) => {
-  const { userId } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ error: "Missing user ID.", code: "ERR_MISSING_USER" });
-  }
-
-  try {
-    await dbService.deleteUser(userId);
-    return res.json({ success: true, message: "Account completely deleted!" });
-  } catch (error: any) {
-    console.error("DeleteAccount error:", error);
-    return res.status(500).json({ error: "Internal delete account handler error." });
   }
 });
 
@@ -513,8 +489,12 @@ app.post("/api/profile/update", async (req, res) => {
 
 // --- AGENT CONFIG ENDPOINTS ---
 
-app.get("/api/agent/config/:userId", async (req, res) => {
-  const { userId } = req.params;
+app.get(["/api/agent/config", "/api/agent/config/:userId"], async (req, res) => {
+  const userId = (req.query.userId || req.params.userId) as string;
+
+  if (!userId) {
+    return res.status(400).json({ error: "User ID is required." });
+  }
 
   try {
     let config = await dbService.getAgentConfigByUserId(userId);

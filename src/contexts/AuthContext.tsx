@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, fullName: string) => {
     setError(null);
     try {
-      const res = await fetch("/api/auth/sign-up", {
+      const res = await fetch("/api/auth?action=sign-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, full_name: fullName })
@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const confirmEmail = async (email: string) => {
     setError(null);
     try {
-      const res = await fetch("/api/auth/confirm-email", {
+      const res = await fetch("/api/auth?action=confirm-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -115,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string, isGoogle = false) => {
     setError(null);
     try {
-      const res = await fetch("/api/auth/sign-in", {
+      const res = await fetch("/api/auth?action=sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, isGoogle })
@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return false;
     setError(null);
     try {
-      const res = await fetch("/api/auth/delete-account", {
+      const res = await fetch("/api/auth?action=delete-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id })
@@ -187,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadConfig = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/agent/config/${user.id}`);
+      const res = await fetch(`/api/agent/config?userId=${user.id}`);
       if (res.ok) {
         const data = await safeParseJson(res);
         setConfig(data.config);
