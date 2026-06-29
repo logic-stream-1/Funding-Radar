@@ -5,9 +5,11 @@ import { User, AgentConfig, AgentRun, CompanyResult } from "../types";
 
 // Database Configuration
 const isServerless = process.env.VERCEL === "1" || process.env.LAMBDA_TASK_ROOT || process.cwd().startsWith("/var/task");
-const DB_PATH = isServerless 
+/*const DB_PATH = isServerless 
   ? path.join("/tmp", "db.json") 
-  : path.join(process.cwd(), "data", "db.json");
+  : path.join(process.cwd(), "data", "db.json");*
+const DB_PATH = path.join("/tmp", "db.json");
+
 
 // Initial Database Seeds for fallback file database
 const INITIAL_DATABASE = {
