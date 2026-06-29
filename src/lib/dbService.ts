@@ -4,7 +4,10 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { User, AgentConfig, AgentRun, CompanyResult } from "../types";
 
 // Database Configuration
-const DB_PATH = path.join(process.cwd(), "data", "db.json");
+const isServerless = process.env.VERCEL === "1" || process.env.LAMBDA_TASK_ROOT || process.cwd().startsWith("/var/task");
+const DB_PATH = isServerless 
+  ? path.join("/tmp", "db.json") 
+  : path.join(process.cwd(), "data", "db.json");
 
 // Initial Database Seeds for fallback file database
 const INITIAL_DATABASE = {
