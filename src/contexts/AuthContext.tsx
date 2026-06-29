@@ -221,7 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadRuns = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/agent/runs/${user.id}`);
+      const res = await fetch(`/api/agent/runs/user/${user.id}`);
       if (res.ok) {
         const data = await safeParseJson(res);
         setRuns(data.runs);
@@ -256,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const rateRun = async (runId: string, rating: number) => {
     setError(null);
     try {
-      const res = await fetch(`/api/agent/runs/${runId}/rate`, {
+      const res = await fetch(`/api/agent/runs/rate/${runId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rating })

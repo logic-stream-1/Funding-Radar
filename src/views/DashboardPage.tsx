@@ -54,7 +54,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
     const latestCompletedRun = runs.find(r => r.status === "completed");
     if (latestCompletedRun) {
       setLoadingResults(true);
-      fetch(`/api/agent/runs/${latestCompletedRun.id}/results`)
+      fetch(`/api/agent/runs/results/${latestCompletedRun.id}`)
         .then(res => {
           if (res.ok) return res.json();
           throw new Error("Failed to load results");
