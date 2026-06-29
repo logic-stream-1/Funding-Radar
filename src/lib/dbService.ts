@@ -1,14 +1,11 @@
 import fs from "fs";
 import path from "path";
+import ws from "ws";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { User, AgentConfig, AgentRun, CompanyResult } from "../types";
 
 // Database Configuration
-//const isServerless = process.env.VERCEL === "1" || process.env.LAMBDA_TASK_ROOT || process.cwd().startsWith("/var/task");
 const isServerless = true;
-/*const DB_PATH = isServerless 
-  ? path.join("/tmp", "db.json") 
-  : path.join(process.cwd(), "data", "db.json");*/
 const DB_PATH = path.join("/tmp", "db.json");
 
 // Initial Database Seeds for fallback file database
@@ -173,10 +170,17 @@ if (supabaseUrl && supabaseAnonKey && supabaseUrl !== "MY_SUPABASE_URL" && supab
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       db: {
         schema: supabaseSchema
+      },
+      realtime: {
+        transport: ws as any
       }
     });
   } else {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      realtime: {
+        transport: ws as any
+      }
+    });
   }
 } else {
   console.log("[Database] No Supabase credentials detected. Running in local JSON fallback mode.");
